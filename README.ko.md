@@ -22,7 +22,7 @@ Windows 11용 Excel 정리 도구입니다.
 
 - 미사용 `cellXfs` Style 탐지
 - 중복 Style 탐지
-- Cell/Row/Column의 Style 참조 확인
+- Cell / Row / Column의 Style 참조 확인
 - Drawing의 `oneCellAnchor` / `twoCellAnchor` 검사
 - 기본 2px 이하 작은 객체 탐지
 
@@ -30,11 +30,12 @@ Windows 11용 Excel 정리 도구입니다.
 
 - 미사용 Style 제거
 - 동일 Style 병합
-- Cell/Row/Column Style index 재매핑
+- Cell / Row / Column Style index 재매핑
 - 작은 Drawing 객체 제거
 - 원본 자동 백업
 - `_clean.xlsx` / `_clean.xlsm` 생성
 - 결과 파일 Open XML 검증
+- 잘못된 Style index 검출
 
 원본 파일은 직접 덮어쓰지 않습니다.
 
@@ -61,7 +62,7 @@ dotnet build .\QuickExcelCleaner.sln -c Release
 dotnet run --project .\tests\QuickExcelCleaner.Tests\QuickExcelCleaner.Tests.csproj -c Release --no-build
 ```
 
-실제 `.xlsx` 테스트 파일을 생성하여 다음을 검증합니다.
+다음 항목을 실제 `.xlsx` 테스트 파일로 검증합니다.
 
 - 미사용 Style 탐지
 - 중복 Style 탐지
@@ -89,7 +90,9 @@ win-x64 self-contained publish
 QuickExcelCleaner-win-x64 artifact
 ```
 
-현재 개발 브랜치:
+`workflow_dispatch`가 포함되어 있어 Actions 화면에서 수동 실행도 가능합니다.
+
+## 개발 브랜치
 
 `feature/net10-windows`
 
