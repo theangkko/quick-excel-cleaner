@@ -21,3 +21,5 @@ jobs:
         run: dotnet restore QuickExcelCleaner.sln
       - name: Build
         run: dotnet build QuickExcelCleaner.sln -c Release --no-restore
+      - name: Scanner smoke test
+        run: dotnet run --project tests/QuickExcelCleaner.Tests/QuickExcelCleaner.Tests.csproj -c Release --no-build
