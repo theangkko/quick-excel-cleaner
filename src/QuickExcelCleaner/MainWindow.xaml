@@ -1,7 +1,8 @@
 <Window x:Class="QuickExcelCleaner.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Quick Excel Cleaner" Width="900" Height="650" MinWidth="760" MinHeight="520">
+        Title="Quick Excel Cleaner" Width="900" Height="650" MinWidth="760" MinHeight="520"
+        AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -10,10 +11,20 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Horizontal">
-            <Button x:Name="OpenButton" Width="120" Height="34" Click="OpenButton_Click">Excel 파일 열기</Button>
-            <TextBlock x:Name="FileText" Margin="14,8,0,0" TextTrimming="CharacterEllipsis" />
-        </StackPanel>
+        <Border Grid.Row="0" BorderBrush="#D0D7DE" BorderThickness="1" CornerRadius="6" Padding="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="OpenButton" Width="120" Height="34" Click="OpenButton_Click">Excel 파일 열기</Button>
+                <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                    <TextBlock x:Name="FileText" Text="Excel 파일을 여기에 끌어놓아도 됩니다." TextTrimming="CharacterEllipsis" />
+                    <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="Gray"
+                               Text="지원: .xlsx / .xlsm · 원본은 수정하지 않습니다." />
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <GroupBox Grid.Row="1" Margin="0,16,0,12" Header="정리 옵션">
             <StackPanel Margin="10" Orientation="Horizontal">
