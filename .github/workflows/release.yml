@@ -44,12 +44,16 @@ jobs:
         shell: pwsh
         run: |
           [xml]$project = Get-Content 'src/QuickExcelCleaner/QuickExcelCleaner.csproj'
-          $versionNode = $project.Project.PropertyGroup.Version | Where-Object { $_ -and $_.InnerText } | Select-Object -First 1
-          if (-not $versionNode) {
-            throw 'AppVersion is not defined in QuickExcelCleaner.csproj.'
+          $versionNode = $project.SelectSingleNode('/Project/PropertyGroup/Version')
+          if ($null -eq $versionNode) {
+            throw 'Version is not defined in QuickExcelCleaner.csproj.'
           }
 
           $version = $versionNode.InnerText.Trim()
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw 'Version is empty in QuickExcelCleaner.csproj.'
+          }
+
           if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
             throw "Invalid AppVersion: $version"
           }
@@ -105,9 +109,12 @@ jobs:
             throw "Release executable is unexpectedly small: $($file.Length) bytes"
           }
 
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "RELEASE_EXE_SHA256=$hash" >> $env:GITHUB_ENV
           Write-Host "Release commit SHA: $env:GITHUB_SHA"
           Write-Host "Release executable: $($file.FullName)"
           Write-Host "Size: $($file.Length) bytes"
+          Write-Host "SHA256: $hash"
 
       - name: Create GitHub Release
         shell: pwsh
@@ -121,6 +128,19 @@ jobs:
             --target $env:GITHUB_SHA `
             --title "Quick Excel Cleaner $env:APP_VERSION" `
             --generate-notes
+
+      - name: Verify GitHub Release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          $asset = gh release view $env:RELEASE_TAG --json assets --jq '.assets[] | select(.name == "QuickExcelCleaner.exe") | .name'
+          if ($asset -ne 'QuickExcelCleaner.exe') {
+            throw "QuickExcelCleaner.exe was not registered as a GitHub Release asset."
+          }
+
+          Write-Host "Verified GitHub Release asset: QuickExcelCleaner.exe"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v6
