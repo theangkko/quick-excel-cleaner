@@ -17,9 +17,9 @@
 
         <GroupBox Grid.Row="1" Margin="0,16,0,12" Header="정리 옵션">
             <StackPanel Margin="10" Orientation="Horizontal">
-                <CheckBox x:Name="UnusedStylesCheck" IsChecked="True" Margin="0,0,20,0">미사용 Style 검사</CheckBox>
-                <CheckBox x:Name="DuplicateStylesCheck" IsChecked="True" Margin="0,0,20,0">중복 Style 검사</CheckBox>
-                <CheckBox x:Name="TinyObjectsCheck" IsChecked="True">작은 객체 검사</CheckBox>
+                <CheckBox x:Name="UnusedStylesCheck" IsChecked="True" Margin="0,0,20,0">미사용 Style 정리</CheckBox>
+                <CheckBox x:Name="DuplicateStylesCheck" IsChecked="True" Margin="0,0,20,0">중복 Style 병합</CheckBox>
+                <CheckBox x:Name="TinyObjectsCheck" IsChecked="True">작은 객체 삭제</CheckBox>
                 <TextBlock Margin="24,2,4,0">기준(px)</TextBlock>
                 <TextBox x:Name="PixelThresholdText" Width="45" Text="2" />
             </StackPanel>
@@ -36,7 +36,10 @@
 
         <DockPanel Grid.Row="3" Margin="0,14,0,0">
             <TextBlock x:Name="StatusText" VerticalAlignment="Center" Text="Excel 파일을 선택하세요." />
-            <Button x:Name="ScanButton" DockPanel.Dock="Right" Width="120" Height="34" IsEnabled="False" Click="ScanButton_Click">검사 시작</Button>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button x:Name="ScanButton" Width="120" Height="34" Margin="0,0,8,0" IsEnabled="False" Click="ScanButton_Click">검사 시작</Button>
+                <Button x:Name="CleanButton" Width="120" Height="34" IsEnabled="False" Click="CleanButton_Click">정리 실행</Button>
+            </StackPanel>
         </DockPanel>
     </Grid>
 </Window>
