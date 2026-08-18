@@ -1,5 +1,7 @@
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Xdr = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 using QuickExcelCleaner.Services;
 
 namespace QuickExcelCleaner.Tests;
@@ -87,16 +89,16 @@ internal static class CleanupTests
         ));
 
         var drawingsPart = worksheetPart.AddNewPart<DrawingsPart>();
-        drawingsPart.WorksheetDrawing = new DocumentFormat.OpenXml.Drawing.Spreadsheet.WorksheetDrawing();
+        drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing();
         drawingsPart.WorksheetDrawing.AppendChild(
-            new DocumentFormat.OpenXml.Drawing.Spreadsheet.OneCellAnchor(
-                new DocumentFormat.OpenXml.Drawing.Spreadsheet.FromMarker(
-                    new ColumnId("0"), new ColumnOffset("0"), new RowId("0"), new RowOffset("0")),
-                new DocumentFormat.OpenXml.Drawing.Spreadsheet.Extent { Cx = 9525L, Cy = 9525L },
-                new DocumentFormat.OpenXml.Drawing.Spreadsheet.ClientData()));
+            new Xdr.OneCellAnchor(
+                new Xdr.FromMarker(
+                    new Xdr.ColumnId("0"), new Xdr.ColumnOffset("0"), new Xdr.RowId("0"), new Xdr.RowOffset("0")),
+                new Xdr.Extent { Cx = 9525L, Cy = 9525L },
+                new Xdr.ClientData()));
         drawingsPart.WorksheetDrawing.Save();
 
-        worksheetPart.Worksheet.Append(new DocumentFormat.OpenXml.Spreadsheet.Drawing
+        worksheetPart.Worksheet.Append(new Drawing
         {
             Id = worksheetPart.GetIdOfPart(drawingsPart)
         });
