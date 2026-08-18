@@ -1,0 +1,57 @@
+name: CI Failure Alert
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: ci-failure-alert-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  alert:
+    name: Create Failure Alert
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Create GitHub Issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_NAME: ${{ github.event.workflow_run.name }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          title="CI failure: ${RUN_NAME} on ${RUN_BRANCH}"
+
+          if gh issue list --state open --search "${title} in:title" --json title | grep -Fq '"title"'; then
+            echo "An open alert issue already exists for this workflow/branch."
+            exit 0
+          fi
+
+          body=$(cat <<EOF
+          ## GitHub Actions failure
+
+          **Workflow:** ${RUN_NAME}
+          **Branch:** ${RUN_BRANCH}
+          **Commit:** ${RUN_SHA}
+          **Run:** ${RUN_URL}
+
+          The CI workflow failed. Review the failed job/step in the Actions run above.
+
+          This issue was generated automatically by \`CI Failure Alert\`.
+          EOF
+          )
+
+          gh issue create \
+            --title "$title" \
+            --body "$body"
