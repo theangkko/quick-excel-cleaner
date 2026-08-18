@@ -7,7 +7,6 @@ on:
 
 permissions:
   actions: read
-  contents: read
   issues: write
 
 concurrency:
@@ -25,15 +24,25 @@ jobs:
       - name: Create GitHub Issue
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           RUN_NAME: ${{ github.event.workflow_run.name }}
           RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
           RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
         shell: bash
         run: |
+          set -euo pipefail
+
           title="CI failure: ${RUN_NAME} on ${RUN_BRANCH}"
 
-          if gh issue list --state open --search "${title} in:title" --json title | grep -Fq '"title"'; then
+          existing_count=$(gh issue list \
+            --state open \
+            --search "${title} in:title" \
+            --json title \
+            --jq 'length')
+
+          if [[ "${existing_count}" != "0" ]]; then
             echo "An open alert issue already exists for this workflow/branch."
             exit 0
           fi
@@ -42,8 +51,10 @@ jobs:
           ## GitHub Actions failure
 
           **Workflow:** ${RUN_NAME}
+          **Event:** ${RUN_EVENT}
           **Branch:** ${RUN_BRANCH}
           **Commit:** ${RUN_SHA}
+          **Run ID:** ${RUN_ID}
           **Run:** ${RUN_URL}
 
           The CI workflow failed. Review the failed job/step in the Actions run above.
