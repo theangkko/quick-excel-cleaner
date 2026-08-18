@@ -7,6 +7,9 @@ namespace QuickExcelCleaner.Services;
 
 public sealed class WorkbookScanner
 {
+    private const double EmuPerPixel = 9525.0;
+    private const double ApproximateCellPixels = 64.0;
+
     public IReadOnlyList<CleanerResult> Scan(string path, double tinyPixelThreshold)
     {
         using var document = SpreadsheetDocument.Open(path, false);
@@ -24,20 +27,32 @@ public sealed class WorkbookScanner
                     usedStyles.Add(styleIndex);
             }
 
+            foreach (var row in worksheetPart.Worksheet.Descendants<Row>())
+            {
+                if (row.StyleIndex?.Value is uint styleIndex)
+                    usedStyles.Add(styleIndex);
+            }
+
+            foreach (var column in worksheetPart.Worksheet.Descendants<Columns>().SelectMany(x => x.Elements<Column>()))
+            {
+                if (column.Style?.Value is uint styleIndex)
+                    usedStyles.Add(styleIndex);
+            }
+
             var drawings = worksheetPart.DrawingsPart?.WorksheetDrawing;
             if (drawings is null) continue;
 
             foreach (var anchor in drawings.ChildElements)
             {
-                var from = anchor.Descendants<DocumentFormat.OpenXml.Drawing.Spreadsheet.FromMarker>().FirstOrDefault();
-                var to = anchor.Descendants<DocumentFormat.OpenXml.Drawing.Spreadsheet.ToMarker>().FirstOrDefault();
-                if (from is null || to is null) continue;
+                if (!TryGetAnchorSize(anchor, out var width, out var height))
+                    continue;
 
-                var width = EstimatePixels(from, to, horizontal: true);
-                var height = EstimatePixels(from, to, horizontal: false);
                 if (width <= tinyPixelThreshold || height <= tinyPixelThreshold)
                 {
-                    results.Add(new CleanerResult("작은 객체", sheet.Name?.Value ?? "", anchor.LocalName,
+                    results.Add(new CleanerResult(
+                        "작은 객체",
+                        sheet.Name?.Value ?? "",
+                        anchor.LocalName,
                         $"약 {width:0.##} × {height:0.##} px"));
                 }
             }
@@ -46,11 +61,11 @@ public sealed class WorkbookScanner
         if (styles?.CellFormats is not null)
         {
             var formats = styles.CellFormats.Elements<CellFormat>().ToList();
-            var signatures = new Dictionary<string, int>();
+            var signatures = new Dictionary<string, int>(StringComparer.Ordinal);
             for (var i = 0; i < formats.Count; i++)
             {
                 if (!usedStyles.Contains((uint)i))
-                    results.Add(new CleanerResult("미사용 Style", "", $"cellXfs[{i}]", "현재 셀에서 직접 참조되지 않음"));
+                    results.Add(new CleanerResult("미사용 Style", "", $"cellXfs[{i}]", "현재 셀/행/열에서 직접 참조되지 않음"));
 
                 var signature = formats[i].OuterXml;
                 if (signatures.TryGetValue(signature, out var first))
@@ -63,19 +78,44 @@ public sealed class WorkbookScanner
         return results;
     }
 
-    private static double EstimatePixels(DocumentFormat.OpenXml.Drawing.Spreadsheet.FromMarker from,
-        DocumentFormat.OpenXml.Drawing.Spreadsheet.ToMarker to, bool horizontal)
+    private static bool TryGetAnchorSize(DocumentFormat.OpenXml.OpenXmlElement anchor, out double width, out double height)
     {
-        var fromCol = from.ColumnId?.Text is { } fc && int.TryParse(fc, out var fci) ? fci : 0;
-        var toCol = to.ColumnId?.Text is { } tc && int.TryParse(tc, out var tci) ? tci : 0;
-        var fromRow = from.RowId?.Text is { } fr && int.TryParse(fr, out var fri) ? fri : 0;
-        var toRow = to.RowId?.Text is { } tr && int.TryParse(tr, out var tri) ? tri : 0;
-        var fromOffset = horizontal ? ParseEmu(from.ColumnOffset?.Text) : ParseEmu(from.RowOffset?.Text);
-        var toOffset = horizontal ? ParseEmu(to.ColumnOffset?.Text) : ParseEmu(to.RowOffset?.Text);
-        var cellCount = horizontal ? Math.Max(0, toCol - fromCol) : Math.Max(0, toRow - fromRow);
-        const double defaultCellPx = 64;
-        return Math.Max(0, cellCount * defaultCellPx + (toOffset - fromOffset) / 9525.0);
+        width = 0;
+        height = 0;
+
+        if (anchor.LocalName == "oneCellAnchor")
+        {
+            var extent = anchor.Descendants<DocumentFormat.OpenXml.Drawing.Spreadsheet.Extent>().FirstOrDefault();
+            if (extent?.Cx?.Value is long cx && extent.Cy?.Value is long cy)
+            {
+                width = cx / EmuPerPixel;
+                height = cy / EmuPerPixel;
+                return true;
+            }
+
+            return false;
+        }
+
+        if (anchor.LocalName == "twoCellAnchor")
+        {
+            var from = anchor.Descendants<DocumentFormat.OpenXml.Drawing.Spreadsheet.FromMarker>().FirstOrDefault();
+            var to = anchor.Descendants<DocumentFormat.OpenXml.Drawing.Spreadsheet.ToMarker>().FirstOrDefault();
+            if (from is null || to is null) return false;
+
+            var fromCol = ParseInt(from.ColumnId?.Text);
+            var toCol = ParseInt(to.ColumnId?.Text);
+            var fromRow = ParseInt(from.RowId?.Text);
+            var toRow = ParseInt(to.RowId?.Text);
+            width = Math.Max(0, toCol - fromCol) * ApproximateCellPixels +
+                    Math.Max(0, ParseEmu(to.ColumnOffset?.Text) - ParseEmu(from.ColumnOffset?.Text)) / EmuPerPixel;
+            height = Math.Max(0, toRow - fromRow) * ApproximateCellPixels +
+                     Math.Max(0, ParseEmu(to.RowOffset?.Text) - ParseEmu(from.RowOffset?.Text)) / EmuPerPixel;
+            return true;
+        }
+
+        return false;
     }
 
-    private static double ParseEmu(string? value) => long.TryParse(value, out var result) ? result : 0;
+    private static int ParseInt(string? value) => int.TryParse(value, out var result) ? result : 0;
+    private static long ParseEmu(string? value) => long.TryParse(value, out var result) ? result : 0;
 }
