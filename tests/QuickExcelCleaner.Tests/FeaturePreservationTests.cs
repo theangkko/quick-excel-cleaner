@@ -50,7 +50,7 @@ internal static class FeaturePreservationTests
 
             var selection = sheetView.Elements<Selection>().Single();
             Assert(selection.ActiveCell?.Value == "B2", "sheet selection active cell was not preserved");
-            Assert(selection.Sqref?.Value == "B2", "sheet selection range was not preserved");
+            Assert(selection.SequenceOfReferences?.InnerText == "B2", "sheet selection range was not preserved");
 
             var conditionalFormatting = worksheet.Elements<ConditionalFormatting>().SingleOrDefault();
             var rule = conditionalFormatting?.Elements<ConditionalFormattingRule>().SingleOrDefault();
@@ -109,13 +109,23 @@ internal static class FeaturePreservationTests
         var sheetView = new SheetView { WorkbookViewId = 0U };
         sheetView.Append(
             new Pane { HorizontalSplit = 1D, VerticalSplit = 1D, TopLeftCell = "B2", ActivePane = PaneValues.BottomRight, State = PaneStateValues.Frozen },
-            new Selection { Pane = PaneValues.BottomRight, ActiveCell = "B2", Sqref = "B2" });
+            new Selection
+            {
+                Pane = PaneValues.BottomRight,
+                ActiveCell = "B2",
+                SequenceOfReferences = new ListValue<StringValue>(new[] { new StringValue("B2") })
+            });
 
         var conditionalFormatting = new ConditionalFormatting
         {
             SequenceOfReferences = new ListValue<StringValue>(new[] { new StringValue("A1:A10") })
         };
-        var rule = new ConditionalFormattingRule { Type = ConditionalFormatValues.Expression, FormatId = 0U, Priority = 1U };
+        var rule = new ConditionalFormattingRule
+        {
+            Type = ConditionalFormatValues.Expression,
+            FormatId = 0U,
+            Priority = new Int32Value(1)
+        };
         rule.Append(new Formula("1=1"));
         conditionalFormatting.Append(rule);
 
