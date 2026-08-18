@@ -102,11 +102,27 @@ public sealed class ExcelCleanupService
         if (workbook.Workbook.Sheets is null || !workbook.Workbook.Sheets.Any())
             throw new InvalidDataException("정리된 파일에 Worksheet가 없습니다.");
 
+        var styleCount = workbook.WorkbookStylesPart?.Stylesheet?.CellFormats?.Elements<CellFormat>().Count() ?? 0;
         foreach (var sheet in workbook.Workbook.Sheets.Elements<Sheet>())
         {
             var part = (WorksheetPart)workbook.GetPartById(sheet.Id!);
-            _ = part.Worksheet;
+            var worksheet = part.Worksheet;
+
+            foreach (var cell in worksheet.Descendants<Cell>())
+                ValidateStyleIndex(cell.StyleIndex?.Value, styleCount, $"{sheet.Name}!{cell.CellReference}");
+
+            foreach (var row in worksheet.Descendants<Row>())
+                ValidateStyleIndex(row.StyleIndex?.Value, styleCount, $"{sheet.Name}!row");
+
+            foreach (var column in worksheet.Descendants<Columns>().SelectMany(x => x.Elements<Column>()))
+                ValidateStyleIndex(column.Style?.Value, styleCount, $"{sheet.Name}!column");
         }
+    }
+
+    private static void ValidateStyleIndex(uint? index, int count, string location)
+    {
+        if (index.HasValue && index.Value >= count)
+            throw new InvalidDataException($"잘못된 Style index {index.Value}가 {location}에 있습니다. cellXfs={count}");
     }
 
     private static (int OriginalCount, int FinalCount, int RemovedCount, int RemappedCount) CleanupStyles(
@@ -252,16 +268,18 @@ public sealed class ExcelCleanupService
             var drawing = drawingsPart?.WorksheetDrawing;
             if (drawing is null) continue;
 
+            var removedFromDrawing = 0;
             foreach (var anchor in drawing.ChildElements.ToList())
             {
                 if (IsTinyAnchor(anchor, thresholdPixels))
                 {
                     anchor.Remove();
                     removed++;
+                    removedFromDrawing++;
                 }
             }
 
-            if (removed > 0)
+            if (removedFromDrawing > 0)
                 drawing.Save();
         }
 
@@ -289,13 +307,9 @@ public sealed class ExcelCleanupService
             var fromRow = ParseInt(from.RowId?.Text);
             var toRow = ParseInt(to.RowId?.Text);
             var width = Math.Max(0, toCol - fromCol) * ApproximateCellPixels +
-                        (ParseEmu(from.ColumnOffset?.Text) < ParseEmu(to.ColumnOffset?.Text)
-                            ? (ParseEmu(to.ColumnOffset?.Text) - ParseEmu(from.ColumnOffset?.Text)) / EmuPerPixel
-                            : 0);
+                        Math.Max(0, ParseEmu(to.ColumnOffset?.Text) - ParseEmu(from.ColumnOffset?.Text)) / EmuPerPixel;
             var height = Math.Max(0, toRow - fromRow) * ApproximateCellPixels +
-                         (ParseEmu(from.RowOffset?.Text) < ParseEmu(to.RowOffset?.Text)
-                             ? (ParseEmu(to.RowOffset?.Text) - ParseEmu(from.RowOffset?.Text)) / EmuPerPixel
-                             : 0);
+                         Math.Max(0, ParseEmu(to.RowOffset?.Text) - ParseEmu(from.RowOffset?.Text)) / EmuPerPixel;
             return width <= thresholdPixels || height <= thresholdPixels;
         }
 
