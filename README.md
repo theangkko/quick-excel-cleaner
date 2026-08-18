@@ -14,41 +14,40 @@ Windows 11용 Excel 정리 도구입니다.
 - `.xlsx`
 - `.xlsm`
 
-원본 Excel을 직접 열어 조작하지 않고 Open XML 패키지를 분석하고 수정합니다. `.xls`는 V1에서 지원하지 않습니다.
+`.xls`는 V1에서 지원하지 않습니다.
 
-## V1 기능
+## V1 구현 완료 범위
 
-### 검사
+### 분석
 
-- 사용 중 Cell Style 검사
-- 미사용 `cellXfs` 검사
-- 중복 Cell Style 검사
-- Cell / Row / Column Style 참조 확인
-- Drawing의 `oneCellAnchor` / `twoCellAnchor` 검사
-- 기본 2px 이하 작은 객체 후보 탐지
+- Cell Style 사용/미사용 분석
+- 중복 `cellXfs` 분석
+- Cell / Row / Column Style 참조 분석
+- `oneCellAnchor` / `twoCellAnchor` Drawing 분석
+- 기본 2px 이하 작은 객체 탐지
 
 ### 정리
 
 - 미사용 Style 제거
-- 동일한 Style 병합
+- 중복 Style 병합
 - Cell / Row / Column Style index 재매핑
-- 1px 수준의 작은 Drawing 객체 제거
-- 원본 자동 백업
-- `*_clean.xlsx` 또는 `*_clean.xlsm` 생성
-- 결과 파일 Open XML 검증
-- 잘못된 Style index 검출
+- 1px 수준 작은 Drawing 객체 제거
+- 원본 백업 생성
+- `_clean.xlsx` / `_clean.xlsm` 생성
+- 결과 파일 Open XML 재검증
+- Style index 무결성 검사
+- 실패 시 결과 파일 삭제
 
-원본 파일은 정리 과정에서 덮어쓰지 않습니다.
+### Windows 11 UI
 
-## 사용법
+- Excel 파일 열기
+- 정리 옵션 선택
+- 검사 결과 DataGrid
+- 검사 실행
+- 결과 파일 저장 위치 선택
+- 정리 결과/백업 위치/통계 표시
 
-1. `Excel 파일 열기`로 `.xlsx` 또는 `.xlsm` 파일을 선택합니다.
-2. `검사 시작`으로 정리 후보를 확인합니다.
-3. 필요한 정리 옵션을 선택합니다.
-4. `정리 실행`을 누르고 결과 파일 위치를 선택합니다.
-5. 원본과 같은 폴더의 `ExcelCleaner_Backup`에 백업이 생성됩니다.
-
-## Windows 11 빌드
+## 실행
 
 ```powershell
 dotnet restore .\QuickExcelCleaner.sln
@@ -63,50 +62,28 @@ dotnet build .\QuickExcelCleaner.sln -c Release
 dotnet run --project .\tests\QuickExcelCleaner.Tests\QuickExcelCleaner.Tests.csproj -c Release --no-build
 ```
 
-실제 `.xlsx` 테스트 파일을 생성하여 다음을 검증합니다.
-
-- 미사용 Style 탐지
-- 중복 Style 탐지
-- Style index 재매핑
-- `cellXfs` 압축
-- 백업 생성
-- 결과 workbook 검증
-- 1px `oneCellAnchor` 객체 제거
+실제 `.xlsx`를 생성하여 Style 탐지, Style 재매핑, `cellXfs` 압축, 백업, workbook 검증, 1px 객체 제거를 검증합니다.
 
 ## GitHub Actions
 
-`.github/workflows/build.yml`에서 Windows runner에 `.NET SDK 10.0.400`을 설치합니다.
-
-CI는 다음 순서로 실행합니다.
+Windows runner에서 `.NET SDK 10.0.400`을 사용합니다.
 
 ```text
-.NET SDK 10.0.400
-      ↓
+.NET 10.0.400
+  ↓
 restore
-      ↓
+  ↓
 Release build
-      ↓
+  ↓
 Excel cleanup integration tests
-      ↓
-win-x64 self-contained publish
-      ↓
+  ↓
+win-x64 self-contained single-file publish
+  ↓
 QuickExcelCleaner-win-x64 artifact
 ```
 
-워크플로에는 `workflow_dispatch`도 포함되어 있어 GitHub Actions 화면에서 수동 실행할 수 있습니다.
+`workflow_dispatch`로 수동 실행할 수 있습니다.
 
-## 안전성 원칙
+현재 개발 브랜치: `feature/net10-windows`
 
-Style은 단순 번호 삭제가 아니라 실제 Cell / Row / Column 참조를 먼저 수집한 뒤 대표 Style을 선택하고 모든 참조를 재매핑합니다.
-
-정리된 파일은 다시 Open XML로 열어 Worksheet와 Style index 관계를 검증합니다. 검증에 실패하면 생성된 결과 파일을 폐기하고 원본에는 아무 변경도 하지 않습니다.
-
-## 개발 브랜치
-
-```text
-feature/net10-windows
-```
-
-PR:
-
-https://github.com/theangkko/quick-excel-cleaner/pull/1
+PR #1: https://github.com/theangkko/quick-excel-cleaner/pull/1
