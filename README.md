@@ -70,6 +70,7 @@ dotnet run --project .\tests\QuickExcelCleaner.Tests\QuickExcelCleaner.Tests.csp
 - 기본 Cleanup: Style 압축, 참조 재매핑, 백업, 1px 객체 삭제
 - Complex Workbook: 다중 Sheet, Row/Column Style, 정상/작은 Drawing 보존/삭제
 - XLSM Preservation: `.xlsm` 결과에서 `xl/vbaProject.bin` 존재 및 바이너리 내용 보존
+- Feature Preservation: 병합 셀, Freeze Pane, 숨김 행/열, Conditional Formatting, Named Style 보존
 
 ## GitHub Actions
 
@@ -84,7 +85,8 @@ Build and Test
   ├─ Scanner
   ├─ Cleanup
   ├─ Complex Workbook
-  └─ XLSM Preservation
+  ├─ XLSM Preservation
+  └─ Feature Preservation
   ↓
 Publish Windows x64
   ↓
@@ -93,8 +95,10 @@ Published EXE validation
 QuickExcelCleaner-win-x64 artifact
 ```
 
+CI 실패 시 `.github/workflows/ci-failure-alert.yml`이 중복을 방지하면서 GitHub Issue를 자동 생성합니다.
+
+Release는 `.github/workflows/release.yml`의 수동 실행으로 시작하며 프로젝트의 `Version` 값을 `v<Version>` Git tag와 GitHub Release로 사용합니다.
+
 `workflow_dispatch`로 수동 실행할 수 있습니다.
 
-현재 개발 브랜치: `feature/net10-windows`
-
-PR #1: https://github.com/theangkko/quick-excel-cleaner/pull/1
+현재 기본 브랜치: `main`
