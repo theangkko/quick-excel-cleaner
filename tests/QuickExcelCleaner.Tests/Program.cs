@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using QuickExcelCleaner.Services;
@@ -36,7 +37,7 @@ Console.WriteLine("ALL TESTS PASSED");
 
 static void CreateWorkbook(string path)
 {
-    using var document = SpreadsheetDocument.Create(path, DocumentFormat.OpenXml.Packaging.SpreadsheetDocumentType.Workbook);
+    using var document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
     var workbookPart = document.AddWorkbookPart();
     workbookPart.Workbook = new Workbook();
 
