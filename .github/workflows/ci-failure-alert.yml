@@ -24,6 +24,7 @@ jobs:
       - name: Create GitHub Issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
           RUN_NAME: ${{ github.event.workflow_run.name }}
@@ -37,6 +38,7 @@ jobs:
           title="CI failure: ${RUN_NAME} on ${RUN_BRANCH}"
 
           existing_count=$(gh issue list \
+            --repo "${GH_REPO}" \
             --state open \
             --search "${title} in:title" \
             --json title \
@@ -64,5 +66,6 @@ jobs:
           )
 
           gh issue create \
+            --repo "${GH_REPO}" \
             --title "$title" \
             --body "$body"
