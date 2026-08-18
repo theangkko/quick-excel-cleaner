@@ -1,0 +1,42 @@
+<Window x:Class="QuickExcelCleaner.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Quick Excel Cleaner" Width="900" Height="650" MinWidth="760" MinHeight="520">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal">
+            <Button x:Name="OpenButton" Width="120" Height="34" Click="OpenButton_Click">Excel 파일 열기</Button>
+            <TextBlock x:Name="FileText" Margin="14,8,0,0" TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <GroupBox Grid.Row="1" Margin="0,16,0,12" Header="정리 옵션">
+            <StackPanel Margin="10" Orientation="Horizontal">
+                <CheckBox x:Name="UnusedStylesCheck" IsChecked="True" Margin="0,0,20,0">미사용 Style 검사</CheckBox>
+                <CheckBox x:Name="DuplicateStylesCheck" IsChecked="True" Margin="0,0,20,0">중복 Style 검사</CheckBox>
+                <CheckBox x:Name="TinyObjectsCheck" IsChecked="True">작은 객체 검사</CheckBox>
+                <TextBlock Margin="24,2,4,0">기준(px)</TextBlock>
+                <TextBox x:Name="PixelThresholdText" Width="45" Text="2" />
+            </StackPanel>
+        </GroupBox>
+
+        <DataGrid Grid.Row="2" x:Name="ResultsGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="구분" Binding="{Binding Category}" Width="160" />
+                <DataGridTextColumn Header="Sheet" Binding="{Binding Sheet}" Width="160" />
+                <DataGridTextColumn Header="대상" Binding="{Binding Target}" Width="240" />
+                <DataGridTextColumn Header="상세" Binding="{Binding Detail}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <DockPanel Grid.Row="3" Margin="0,14,0,0">
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" Text="Excel 파일을 선택하세요." />
+            <Button x:Name="ScanButton" DockPanel.Dock="Right" Width="120" Height="34" IsEnabled="False" Click="ScanButton_Click">검사 시작</Button>
+        </DockPanel>
+    </Grid>
+</Window>
