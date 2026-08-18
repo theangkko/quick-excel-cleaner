@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and Release Windows x64
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.400'
+          cache: false
+
+      - name: Read AppVersion
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content 'src/QuickExcelCleaner/QuickExcelCleaner.csproj'
+          $versionNode = $project.Project.PropertyGroup.Version | Where-Object { $_ -and $_.InnerText } | Select-Object -First 1
+          if (-not $versionNode) {
+            throw 'AppVersion is not defined in QuickExcelCleaner.csproj.'
+          }
+
+          $version = $versionNode.InnerText.Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Invalid AppVersion: $version"
+          }
+
+          $tag = "v$version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "AppVersion: $version"
+          Write-Host "Release tag: $tag"
+
+      - name: Check tag does not already exist
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git fetch --tags --force
+          if (git tag --list $env:RELEASE_TAG) {
+            throw "Release tag $env:RELEASE_TAG already exists. Bump AppVersion before creating another release."
+          }
+
+      - name: Restore
+        run: dotnet restore QuickExcelCleaner.sln
+
+      - name: Build
+        run: dotnet build QuickExcelCleaner.sln -c Release --no-restore --nologo
+
+      - name: Integration tests
+        run: dotnet run --project tests/QuickExcelCleaner.Tests/QuickExcelCleaner.Tests.csproj -c Release --no-build --nologo
+
+      - name: Publish Windows x64 self-contained single-file
+        run: >-
+          dotnet publish src/QuickExcelCleaner/QuickExcelCleaner.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          -o artifacts/QuickExcelCleaner
+
+      - name: Validate release executable
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'artifacts/QuickExcelCleaner/QuickExcelCleaner.exe'
+          if (-not (Test-Path $exe)) {
+            throw "Release executable was not produced: $exe"
+          }
+
+          $file = Get-Item $exe
+          if ($file.Length -lt 1MB) {
+            throw "Release executable is unexpectedly small: $($file.Length) bytes"
+          }
+
+          Write-Host "Release executable: $($file.FullName)"
+          Write-Host "Size: $($file.Length) bytes"
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $exe = 'artifacts/QuickExcelCleaner/QuickExcelCleaner.exe'
+          gh release create $env:RELEASE_TAG $exe `
+            --target $env:GITHUB_SHA `
+            --title "Quick Excel Cleaner $env:APP_VERSION" `
+            --generate-notes
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: QuickExcelCleaner-${{ steps.version.outputs.version }}-win-x64
+          path: artifacts/QuickExcelCleaner/QuickExcelCleaner.exe
+          if-no-files-found: error
+          retention-days: 14
