@@ -37,10 +37,12 @@ Windows 11용 Excel 정리 도구입니다.
 - 결과 파일 Open XML 재검증
 - Style index 무결성 검사
 - 실패 시 결과 파일 삭제
+- `.xlsm`의 `xl/vbaProject.bin` 보존 검증
 
 ### Windows 11 UI
 
 - Excel 파일 열기
+- Excel 파일 드래그앤드롭
 - 정리 옵션 선택
 - 검사 결과 DataGrid
 - 검사 실행
@@ -62,7 +64,12 @@ dotnet build .\QuickExcelCleaner.sln -c Release
 dotnet run --project .\tests\QuickExcelCleaner.Tests\QuickExcelCleaner.Tests.csproj -c Release --no-build
 ```
 
-실제 `.xlsx`를 생성하여 Style 탐지, Style 재매핑, `cellXfs` 압축, 백업, workbook 검증, 1px 객체 제거를 검증합니다.
+통합 테스트는 다음을 포함합니다.
+
+- Scanner: 미사용/중복 Style 탐지
+- 기본 Cleanup: Style 압축, 참조 재매핑, 백업, 1px 객체 삭제
+- Complex Workbook: 다중 Sheet, Row/Column Style, 정상/작은 Drawing 보존/삭제
+- XLSM Preservation: `.xlsm` 결과에서 `xl/vbaProject.bin` 존재 및 바이너리 내용 보존
 
 ## GitHub Actions
 
@@ -74,6 +81,10 @@ Windows runner에서 `.NET SDK 10.0.400`을 사용합니다. CI는 Node.js 24 �
 Restore
   ↓
 Build and Test
+  ├─ Scanner
+  ├─ Cleanup
+  ├─ Complex Workbook
+  └─ XLSM Preservation
   ↓
 Publish Windows x64
   ↓
