@@ -66,18 +66,18 @@ dotnet run --project .\tests\QuickExcelCleaner.Tests\QuickExcelCleaner.Tests.csp
 
 ## GitHub Actions
 
-Windows runner에서 `.NET SDK 10.0.400`을 사용합니다.
+Windows runner에서 `.NET SDK 10.0.400`을 사용합니다. CI는 Node.js 24 기반 GitHub Actions 메이저 버전을 사용하며, 실패 지점을 `Build and Test`와 `Publish Windows x64` 체크로 분리합니다.
 
 ```text
 .NET 10.0.400
   ↓
-restore
+Restore
   ↓
-Release build
+Build and Test
   ↓
-Excel cleanup integration tests
+Publish Windows x64
   ↓
-win-x64 self-contained single-file publish
+Published EXE validation
   ↓
 QuickExcelCleaner-win-x64 artifact
 ```
