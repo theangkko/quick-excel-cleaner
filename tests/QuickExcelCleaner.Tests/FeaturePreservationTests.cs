@@ -39,6 +39,8 @@ internal static class FeaturePreservationTests
             var pane = sheetView.Elements<Pane>().Single();
             Assert(pane.TopLeftCell?.Value == "B2", "freeze pane TopLeftCell was not preserved");
             Assert(pane.State?.Value == PaneStateValues.Frozen, "freeze pane state was not preserved");
+            Assert(pane.HorizontalSplit?.Value == 1D, "freeze pane horizontal split was not preserved");
+            Assert(pane.VerticalSplit?.Value == 1D, "freeze pane vertical split was not preserved");
 
             var hiddenRow = worksheet.Descendants<Row>().Single(x => x.RowIndex?.Value == 3U);
             Assert(hiddenRow.Hidden?.Value == true, "hidden row was not preserved");
@@ -46,9 +48,14 @@ internal static class FeaturePreservationTests
             var hiddenColumn = worksheet.Descendants<Column>().Single(x => x.Min?.Value == 3U);
             Assert(hiddenColumn.Hidden?.Value == true, "hidden column was not preserved");
 
+            var selection = sheetView.Elements<Selection>().Single();
+            Assert(selection.ActiveCell?.Value == "B2", "sheet selection active cell was not preserved");
+            Assert(selection.Sqref?.Value == "B2", "sheet selection range was not preserved");
+
             var conditionalFormatting = worksheet.Elements<ConditionalFormatting>().SingleOrDefault();
-            Assert(conditionalFormatting?.Elements<ConditionalFormattingRule>().Any() == true,
-                "conditional formatting was not preserved");
+            var rule = conditionalFormatting?.Elements<ConditionalFormattingRule>().SingleOrDefault();
+            Assert(conditionalFormatting?.SequenceOfReferences?.InnerText == "A1:A10", "conditional formatting range was not preserved");
+            Assert(rule?.Elements<Formula>().SingleOrDefault()?.Text == "1=1", "conditional formatting formula was not preserved");
 
             var styles = workbook.WorkbookStylesPart!.Stylesheet!;
             var namedStyle = styles.CellStyles?.Elements<CellStyle>().SingleOrDefault(x => x.Name?.Value == "CleanerTestStyle");
@@ -89,30 +96,37 @@ internal static class FeaturePreservationTests
         );
         stylesPart.Stylesheet.Save();
 
-        var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+        var row1 = new Row { RowIndex = 1U };
+        row1.Append(
+            new Cell { CellReference = "A1", DataType = CellValues.String, CellValue = new CellValue("KEEP-FEATURES"), StyleIndex = 1U },
+            new Cell { CellReference = "B1", DataType = CellValues.String, CellValue = new CellValue("MERGED") });
+
         var sheetData = new SheetData(
-            new Row { RowIndex = 1U,
-                ChildElements =
-                {
-                    new Cell { CellReference = "A1", DataType = CellValues.String, CellValue = new CellValue("KEEP-FEATURES"), StyleIndex = 1U },
-                    new Cell { CellReference = "B1", DataType = CellValues.String, CellValue = new CellValue("MERGED") }
-                } },
+            row1,
             new Row { RowIndex = 2U },
-            new Row { RowIndex = 3U, Hidden = true }
-        );
+            new Row { RowIndex = 3U, Hidden = true });
+
+        var sheetView = new SheetView { WorkbookViewId = 0U };
+        sheetView.Append(
+            new Pane { HorizontalSplit = 1D, VerticalSplit = 1D, TopLeftCell = "B2", ActivePane = PaneValues.BottomRight, State = PaneStateValues.Frozen },
+            new Selection { Pane = PaneValues.BottomRight, ActiveCell = "B2", Sqref = "B2" });
+
+        var conditionalFormatting = new ConditionalFormatting
+        {
+            SequenceOfReferences = new ListValue<StringValue>(new[] { new StringValue("A1:A10") })
+        };
+        var rule = new ConditionalFormattingRule { Type = ConditionalFormatValues.Expression, FormatId = 0U, Priority = 1U };
+        rule.Append(new Formula("1=1"));
+        conditionalFormatting.Append(rule);
 
         var worksheet = new Worksheet(sheetData);
-
         worksheet.Append(
-            new SheetViews(new SheetView { WorkbookViewId = 0U,
-                Pane = new Pane { XSplit = 1D, YSplit = 1D, TopLeftCell = "B2", ActivePane = PaneValues.BottomRight, State = PaneStateValues.Frozen },
-                Selection = new Selection { Pane = PaneValues.BottomRight, ActiveCell = "B2", Sqref = "B2" } }),
+            new SheetViews(sheetView),
             new MergeCells(new MergeCell { Reference = "A1:B1" }),
             new Columns(new Column { Min = 3U, Max = 3U, Hidden = true }),
-            new ConditionalFormatting { SequenceOfReferences = new ListValue<StringValue>(new[] { new StringValue("A1:A10") }),
-                ChildElements = { new ConditionalFormattingRule { Type = ConditionalFormatValues.Expression, Formula = new Formula("1=1") } } }
-        );
+            conditionalFormatting);
 
+        var worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
         worksheetPart.Worksheet = worksheet;
         worksheet.Save();
 
