@@ -1,187 +1,100 @@
-# Luna Chat Coder
+# Quick Excel Cleaner
 
-[한국어 README](README.ko.md)
+Windows 11용 Excel 정리 도구입니다.
 
-**Version 0.1.0**
+## 기술 스택
 
-> AI agents working from this repository should read [`AGENTS.md`](AGENTS.md) first.
+- C# / WPF
+- .NET 10 (`net10.0-windows`)
+- DocumentFormat.OpenXml 3.3.0
+- Excel 설치 불필요
 
-Luna Chat Coder is a repository template with an embedded fallback skill for reliable software development from ordinary chat.
+## 지원 파일
 
-After the one-time setup, the intended user experience is simple: give ChatGPT the repository and the development task. Luna is discovered from the repository, uses the chat sandbox for normal work, and reaches for GitHub Actions only when that normal path is insufficient.
+- `.xlsx`
+- `.xlsm`
 
-## Quick start
+`.xls`는 V1에서 지원하지 않습니다.
 
-For the ChatGPT Web path documented by this repository:
+## V1 구현 완료 범위
 
-1. On this repository, choose **Use this template → Create a new repository**.
-2. In ChatGPT, open the Plugins Directory at <https://chatgpt.com/plugins> and install/connect the **GitHub Plugin**.
-3. On GitHub, install the **ChatGPT Codex Connector** from <https://github.com/apps/chatgpt-codex-connector> and grant it access to the new repository. If it is already installed with selected repositories, add the new repository to its access list.
-4. In an ordinary ChatGPT conversation, provide the repository URL and ask for the development work you want. You should not need to mention Luna Chat Coder; the repository's `AGENTS.md` points the model to the embedded skill.
+### 분석
 
-A repository created from this template already contains Luna; no separate Luna installation is required.
+- Cell Style 사용/미사용 분석
+- 중복 `cellXfs` 분석
+- Cell / Row / Column Style 참조 분석
+- `oneCellAnchor` / `twoCellAnchor` Drawing 분석
+- 기본 2px 이하 작은 객체 탐지
 
-Steps 1–3 are one-time user/admin setup in the validated ChatGPT Web workflow. Repository creation, plugin connection, GitHub App installation, and repository authorization should be completed before expecting the chat to operate that repository. Organization policy may require administrator approval.
+### 정리
 
-For an existing repository, see [Add to an existing repository](#add-to-an-existing-repository).
+- 미사용 Style 제거
+- 중복 Style 병합
+- Cell / Row / Column Style index 재매핑
+- 1px 수준 작은 Drawing 객체 제거
+- 원본 백업 생성
+- `_clean.xlsx` / `_clean.xlsm` 생성
+- 결과 파일 Open XML 재검증
+- Style index 무결성 검사
+- 실패 시 결과 파일 삭제
+- `.xlsm`의 `xl/vbaProject.bin` 보존 검증
 
-## What Luna does automatically
+### Windows 11 UI
 
-On substantial repository work, the model should quietly:
+- Excel 파일 열기
+- Excel 파일 드래그앤드롭
+- 정리 옵션 선택
+- 검사 결과 DataGrid
+- 검사 실행
+- 결과 파일 저장 위치 선택
+- 정리 결과/백업 위치/통계 표시
 
-1. read `AGENTS.md` and the embedded `SKILL.md`;
-2. identify the exact repository/PR/commit state and inspect any surviving sandbox work;
-3. materialize the exact target commit or PR-head source as a complete sandbox working tree and verify its base identity before editing;
-4. inventory the sandbox before installing or acquiring anything;
-5. perform normal edit/build/test/debug work in the sandbox work container;
-6. use an Actions mission only for a real capability, transport, or execution gap;
-7. verify executable behavior with the checks required by the repository and task;
-8. publish the exact verified change through the simplest reliable GitHub path;
-9. report only what actually ran, and mention degraded remote execution when it was necessary.
+## 실행
 
-A healthy task should not make the user operate Luna or watch its internal checklist.
-
-## When Actions missions are useful
-
-GitHub Actions is a fallback execution boundary, not the default development environment.
-
-A mission may be useful for three different reasons:
-
-- **Supply** — the sandbox can do the engineering work but cannot obtain a required dependency, runtime, SDK, compiler, native library, generated input, or similar external input.
-- **Exact transport** — a deterministic patch/bundle is safer or more efficient than repeated GitHub writes, for example across many files, binary or mode-sensitive changes, connector limits, or persistent API instability.
-- **Degraded remote execution** — the sandbox itself is unavailable or cannot sustain the task because of a hard usage, duration, resource, or execution limit.
-
-Patch transport is a choice, not a last-resort punishment. File operations, native Git object operations, and exact patch/bundle missions are alternative publication mechanisms. Luna chooses the lowest-overhead option that remains exact and reliable for the observed change.
-
-An API or Actions failure must be diagnosed before it is retried. The model should inspect the returned error, failing step, logs, and partial results before editing source or repeating a run. An unchanged retry is appropriate only when the evidence supports a transient or flaky failure; repeated blind retries are specifically discouraged.
-
-Detailed mission rules live in [`actions-missions.md`](.agents/skills/luna-chat-coder/references/actions-missions.md).
-
-## Why Luna exists
-
-Chat-based development already has a useful execution environment. Luna exists to make better use of it without pretending it is a persistent developer workstation:
-
-- the sandbox may reset or disappear;
-- network, storage, resource, duration, or usage limits can block required work;
-- repositories may require tools or external inputs not initially present;
-- conversation text preserves intent well but is a poor source of exact bytes;
-- GitHub Actions is remote, metered execution with workflow, startup, artifact, and cleanup overhead.
-
-The policy is therefore **sandbox first, remote only for a real gap**. Inventory what already exists before acquiring more.
-
-The repository defines its own engineering method. Luna does not choose a database, test framework, runtime, or substitute technology merely because it is easier to run. It makes the repository's declared requirements executable as faithfully as practical.
-
-The user's own computer is intentionally outside the workflow. Normal repository development should not require direct host access or weaker host isolation.
-
-## Exact publication and recovery
-
-GitHub is the durable source of exact repository state. For recovery, prefer:
-
-```text
-commit / PR head
-    > immutable Git or Actions artifact
-    > surviving sandbox working tree
-    > conversation reconstruction
+```powershell
+dotnet restore .\QuickExcelCleaner.sln
+dotnet build .\QuickExcelCleaner.sln -c Release
+dotnet run --project .\src\QuickExcelCleaner\QuickExcelCleaner.csproj -c Release
 ```
 
-For publication, choose among connected file operations, native Git blob/tree/commit/ref operations, or an exact patch/bundle mission according to the actual payload and observed integration reliability. A substantial change should be bound to an expected base SHA. If the base moved, recover and deliberately rebase, merge, or recreate the payload.
+## 통합 테스트
 
-Do not recreate a large verified change from prose when exact bytes already exist.
-
-Temporary mission state is task-owned and bounded, but cleanup is recovery-aware. Failed runs, branches, artifacts, or logs should remain while they still have debugging, review, handoff, or recovery value. If conversational context is lost, reconstruct ownership and terminal state from durable GitHub evidence before deleting unfamiliar remote objects.
-
-See [`recovery.md`](.agents/skills/luna-chat-coder/references/recovery.md) and [`actions-missions.md`](.agents/skills/luna-chat-coder/references/actions-missions.md) for the detailed rules.
-
-## Design model (optional)
-
-Users do not need this model to use Luna, but it explains the design:
-
-```text
-Chat
-    intent and interaction
-
-Sandbox work container
-    primary disposable development workstation
-
-GitHub
-    exact durable repository state
-
-GitHub Actions mission
-    bounded remote capability, transport, or execution when the normal path is insufficient
+```powershell
+dotnet build .\QuickExcelCleaner.sln -c Release
+dotnet run --project .\tests\QuickExcelCleaner.Tests\QuickExcelCleaner.Tests.csproj -c Release --no-build
 ```
 
-An Actions mission is closer to an unmanned deep-sea or space probe than to a live remote terminal: give it an exact source identity, inputs, purpose, and return contract; let it run independently; then inspect the durable result after it terminates.
+통합 테스트는 다음을 포함합니다.
 
-## Why the ChatGPT Web path has two GitHub connections
+- Scanner: 미사용/중복 Style 탐지
+- 기본 Cleanup: Style 압축, 참조 재매핑, 백업, 1px 객체 삭제
+- Complex Workbook: 다중 Sheet, Row/Column Style, 정상/작은 Drawing 보존/삭제
+- XLSM Preservation: `.xlsm` 결과에서 `xl/vbaProject.bin` 존재 및 바이너리 내용 보존
 
-The workflow documented here requires two separate layers:
+## GitHub Actions
 
-1. **GitHub Plugin** — the ChatGPT-side workflow/tool capability.
-2. **ChatGPT Codex Connector GitHub App** — the GitHub-side installation that is granted access to the target repository.
-
-Both must be available and authorized for the target repository. They are not interchangeable. Actions/workflow/log/artifact access is additionally needed only when an Actions mission is actually required.
-
-UI names can change; the capability and authorization boundary is what matters.
-
-## Repository discovery and layout
-
-The template deliberately separates discovery, runtime policy, operational details, and maintainer memory:
+Windows runner에서 `.NET SDK 10.0.400`을 사용합니다. CI는 Node.js 24 기반 GitHub Actions 메이저 버전을 사용하며, 실패 지점을 `Build and Test`와 `Publish Windows x64` 체크로 분리합니다.
 
 ```text
-AGENTS.md
-    -> small repository entry point
-    -> tells the model to read the skill before substantial chat-based development
-
-.agents/skills/luna-chat-coder/
-  SKILL.md
-      -> canonical machine policy
-  references/
-    actions-missions.md
-      -> mission, failure-diagnosis, transport, lifecycle, and cleanup rules
-    recovery.md
-      -> recovery after sandbox/chat/context loss or source ambiguity
-    design-rationale.md
-      -> maintainer-only design memory for changing Luna itself
+.NET 10.0.400
+  ↓
+Restore
+  ↓
+Build and Test
+  ├─ Scanner
+  ├─ Cleanup
+  ├─ Complex Workbook
+  └─ XLSM Preservation
+  ↓
+Publish Windows x64
+  ↓
+Published EXE validation
+  ↓
+QuickExcelCleaner-win-x64 artifact
 ```
 
-The intended pattern is **discover early, activate late**. Loading Luna does not mean Actions should run. On the healthy path the skill should be mostly invisible.
+`workflow_dispatch`로 수동 실행할 수 있습니다.
 
-`AGENTS.md` is a discovery accelerator, not a hard runtime dependency. Downstream projects may replace their top-level README or AGENTS content. Keep the skill directory intact, and when practical merge the short Luna entry-point instruction into the project's own `AGENTS.md` rather than preserving Luna's original file verbatim. Hosts that support repository-local skill discovery may still find the skill without that pointer, but Luna does not assume every host will.
+현재 개발 브랜치: `feature/net10-windows`
 
-The maintainer rationale intentionally lives inside the skill directory so it survives template copies, top-level file replacement, repository migration, and a public-history reset. Normal development tasks do not need to read it.
-
-## Portability
-
-The embedded skill follows the Agent Skills structure and keeps the core policy host-neutral. Agent Skills is an open cross-platform format: <https://agentskills.io/>.
-
-This repository documents one fully specified integration path: **ChatGPT Web + GitHub Plugin + ChatGPT Codex Connector**. Other Agent Skills hosts can use the same sandbox-first, durable-state, exact-transport, and bounded-mission policy when they actually provide equivalent code-execution and GitHub capabilities.
-
-Format compatibility alone is not a promise of full operational support. A host must not invent repository write, Actions, logs, artifacts, or credentials it does not have.
-
-## Add to an existing repository
-
-Copy the complete skill directory:
-
-```text
-.agents/skills/luna-chat-coder/
-```
-
-Then add the short Luna entry-point instructions from this repository's `AGENTS.md` to the target repository's existing agent instructions. Keep the project's own engineering guidance; Luna is a continuity/fallback layer around it, not a replacement.
-
-For the validated ChatGPT Web path, connect the GitHub Plugin and grant the ChatGPT Codex Connector access to that repository before asking the chat to work on it.
-
-## Scope
-
-Luna Chat Coder covers:
-
-- early repository-policy discovery for chat-based development;
-- exact recovery across sandbox or conversational context loss;
-- sandbox-first execution and capability inventory;
-- faithful acquisition of repository-required missing inputs;
-- exact multi-file/binary/history transport when it is the better publication path;
-- bounded GitHub Actions missions and failure diagnosis;
-- degraded remote execution when the sandbox itself is unavailable;
-- evidence-based completion reporting;
-- recovery-aware cleanup of temporary mission-owned remote state.
-
-Keep the protocol small. Add rules only when they prevent a repeatable failure in constrained chat-based repository development.
+PR #1: https://github.com/theangkko/quick-excel-cleaner/pull/1
