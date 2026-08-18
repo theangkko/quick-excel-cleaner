@@ -46,7 +46,6 @@ public sealed class ExcelCleanupService
 
         try
         {
-            // Refuse to modify an already malformed workbook.
             ValidateWorkbook(fullOutput);
 
             CleanupReport report;
@@ -69,7 +68,6 @@ public sealed class ExcelCleanupService
                     removedObjects);
             }
 
-            // Validate the actual output before reporting success.
             ValidateWorkbook(fullOutput);
             return report;
         }
@@ -129,42 +127,65 @@ public sealed class ExcelCleanupService
         if (!options.RemoveUnusedStyles && !options.MergeDuplicateStyles)
             return (originalCount, originalCount, 0, 0);
 
+        // Phase 1: group every original Style by signature before considering usage.
+        // This prevents an unused earlier Style from being discarded before a used duplicate
+        // can be mapped back to it.
         var canonicalBySignature = new Dictionary<string, int>(StringComparer.Ordinal);
-        var keepIndexes = new List<int>();
-        var remap = new Dictionary<int, int>();
+        var canonicalForOriginal = new Dictionary<int, int>();
+        var groupMembers = new Dictionary<int, List<int>>();
 
         for (var i = 0; i < formats.Count; i++)
         {
-            if (i != 0 && options.RemoveUnusedStyles && !used.Contains(i))
-                continue;
-
             var signature = formats[i].OuterXml;
-            if (options.MergeDuplicateStyles && canonicalBySignature.TryGetValue(signature, out var canonical))
+            if (!canonicalBySignature.TryGetValue(signature, out var canonical))
             {
-                remap[i] = canonical;
-                continue;
+                canonical = i;
+                canonicalBySignature[signature] = canonical;
+                groupMembers[canonical] = new List<int>();
             }
 
-            canonicalBySignature[signature] = i;
-            keepIndexes.Add(i);
-            remap[i] = i;
+            canonicalForOriginal[i] = canonical;
+            groupMembers[canonical].Add(i);
+        }
+
+        // Phase 2: keep canonical Styles whose group is used, plus Style 0.
+        var keepCanonicalIndexes = new List<int>();
+        foreach (var pair in groupMembers.OrderBy(x => x.Key))
+        {
+            var canonical = pair.Key;
+            var isUsed = pair.Value.Any(used.Contains);
+            var mustKeep = canonical == 0 || !options.RemoveUnusedStyles || isUsed;
+            if (mustKeep)
+                keepCanonicalIndexes.Add(canonical);
+        }
+
+        // If duplicate merging is disabled, usage is applied to each original index directly.
+        if (!options.MergeDuplicateStyles)
+        {
+            keepCanonicalIndexes = Enumerable.Range(0, formats.Count)
+                .Where(i => i == 0 || !options.RemoveUnusedStyles || used.Contains(i))
+                .ToList();
+
+            canonicalForOriginal = Enumerable.Range(0, formats.Count)
+                .ToDictionary(i => i, i => i);
         }
 
         var newIndex = new Dictionary<int, uint>();
         var newFormats = new List<CellFormat>();
-        for (var i = 0; i < keepIndexes.Count; i++)
+        foreach (var originalIndex in keepCanonicalIndexes)
         {
-            var originalIndex = keepIndexes[i];
-            newIndex[originalIndex] = (uint)i;
+            newIndex[originalIndex] = (uint)newFormats.Count;
             newFormats.Add((CellFormat)formats[originalIndex].CloneNode(true));
         }
 
         var normalizedRemap = new Dictionary<uint, uint>();
         for (var i = 0; i < formats.Count; i++)
         {
-            var canonicalOriginal = remap.TryGetValue(i, out var canonical) ? canonical : -1;
-            if (canonicalOriginal >= 0 && newIndex.TryGetValue(canonicalOriginal, out var target))
+            var canonical = canonicalForOriginal[i];
+            if (newIndex.TryGetValue(canonical, out var target))
                 normalizedRemap[(uint)i] = target;
+            else if (!options.RemoveUnusedStyles)
+                normalizedRemap[(uint)i] = (uint)i;
         }
 
         var remappedCount = ApplyStyleRemap(workbook, normalizedRemap);
@@ -333,7 +354,6 @@ public sealed class ExcelCleanupService
         }
         catch
         {
-            // Cleanup failure should not mask the original exception.
         }
     }
 }
