@@ -46,6 +46,10 @@ public sealed class ExcelCleanupService
 
         try
         {
+            // Refuse to modify an already malformed workbook.
+            ValidateWorkbook(fullOutput);
+
+            CleanupReport report;
             using (var document = SpreadsheetDocument.Open(fullOutput, true))
             {
                 var workbook = document.WorkbookPart ?? throw new InvalidDataException("WorkbookPart가 없습니다.");
@@ -55,7 +59,7 @@ public sealed class ExcelCleanupService
                     : 0;
 
                 workbook.Workbook.Save();
-                return new CleanupReport(
+                report = new CleanupReport(
                     fullOutput,
                     backupPath,
                     styleReport.OriginalCount,
@@ -64,41 +68,25 @@ public sealed class ExcelCleanupService
                     styleReport.RemappedCount,
                     removedObjects);
             }
+
+            // Validate the actual output before reporting success.
+            ValidateWorkbook(fullOutput);
+            return report;
         }
         catch
         {
             TryDelete(fullOutput);
             throw;
         }
-
-        static string CreateBackup(string source)
-        {
-            var sourceDirectory = Path.GetDirectoryName(source)!;
-            var backupDirectory = Path.Combine(sourceDirectory, "ExcelCleaner_Backup");
-            Directory.CreateDirectory(backupDirectory);
-            var baseName = Path.GetFileNameWithoutExtension(source);
-            var extension = Path.GetExtension(source);
-            var candidate = Path.Combine(backupDirectory, $"{baseName}_{DateTime.Now:yyyyMMdd_HHmmss}_backup{extension}");
-            var suffix = 1;
-            while (File.Exists(candidate))
-            {
-                candidate = Path.Combine(backupDirectory, $"{baseName}_{DateTime.Now:yyyyMMdd_HHmmss}_backup_{suffix++}{extension}");
-            }
-
-            File.Copy(source, candidate, overwrite: false);
-            return candidate;
-        }
-
-        static void TryDelete(string path)
-        {
-            try { if (File.Exists(path)) File.Delete(path); } catch { }
-        }
     }
 
     public static void ValidateWorkbook(string path)
     {
+        if (!File.Exists(path))
+            throw new FileNotFoundException("검증할 Excel 파일을 찾을 수 없습니다.", path);
+
         using var document = SpreadsheetDocument.Open(path, false);
-        var workbook = document.WorkbookPart ?? throw new InvalidDataException("정리된 파일에 WorkbookPart가 없습니다.");
+        var workbook = document.WorkbookPart ?? throw new InvalidDataException("WorkbookPart가 없습니다.");
         if (workbook.Workbook.Sheets is null || !workbook.Workbook.Sheets.Any())
             throw new InvalidDataException("정리된 파일에 Worksheet가 없습니다.");
 
@@ -318,4 +306,34 @@ public sealed class ExcelCleanupService
 
     private static int ParseInt(string? value) => int.TryParse(value, out var result) ? result : 0;
     private static long ParseEmu(string? value) => long.TryParse(value, out var result) ? result : 0;
+
+    private static string CreateBackup(string source)
+    {
+        var sourceDirectory = Path.GetDirectoryName(source)!;
+        var backupDirectory = Path.Combine(sourceDirectory, "ExcelCleaner_Backup");
+        Directory.CreateDirectory(backupDirectory);
+        var baseName = Path.GetFileNameWithoutExtension(source);
+        var extension = Path.GetExtension(source);
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var candidate = Path.Combine(backupDirectory, $"{baseName}_{timestamp}_backup{extension}");
+        var suffix = 1;
+        while (File.Exists(candidate))
+            candidate = Path.Combine(backupDirectory, $"{baseName}_{timestamp}_backup_{suffix++}{extension}");
+
+        File.Copy(source, candidate, overwrite: false);
+        return candidate;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch
+        {
+            // Cleanup failure should not mask the original exception.
+        }
+    }
 }
