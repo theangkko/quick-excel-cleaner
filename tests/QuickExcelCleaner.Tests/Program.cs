@@ -35,6 +35,7 @@ finally
 QuickExcelCleaner.Tests.CleanupTests.Run();
 QuickExcelCleaner.Tests.ComplexWorkbookTests.Run();
 QuickExcelCleaner.Tests.XlsmPreservationTests.Run();
+QuickExcelCleaner.Tests.FeaturePreservationTests.Run();
 Console.WriteLine("ALL TESTS PASSED");
 
 static void CreateWorkbook(string path)
