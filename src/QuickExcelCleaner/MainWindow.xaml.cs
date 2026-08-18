@@ -1,11 +1,13 @@
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Windows;
 using Microsoft.Win32;
 using QuickExcelCleaner.Models;
 using QuickExcelCleaner.Services;
-using System.Collections.ObjectModel;
 
 namespace QuickExcelCleaner;
 
-public partial class MainWindow : System.Windows.Window
+public partial class MainWindow : Window
 {
     private readonly WorkbookScanner _scanner = new();
     private readonly ExcelCleanupService _cleaner = new();
@@ -18,24 +20,64 @@ public partial class MainWindow : System.Windows.Window
         ResultsGrid.ItemsSource = _results;
     }
 
-    private void OpenButton_Click(object sender, System.Windows.RoutedEventArgs e)
+    private void OpenButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
         {
             Filter = "Excel files (*.xlsx;*.xlsm)|*.xlsx;*.xlsm|All files (*.*)|*.*",
             Multiselect = false
         };
-        if (dialog.ShowDialog() != true) return;
+        if (dialog.ShowDialog() == true)
+            SetSelectedFile(dialog.FileName);
+    }
 
-        _selectedFile = dialog.FileName;
-        FileText.Text = _selectedFile;
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        if (IsExcelDrop(e.Data))
+        {
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+            return;
+        }
+
+        e.Effects = DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (!IsExcelDrop(e.Data)) return;
+
+        var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+        var excelFile = files?.FirstOrDefault(IsExcelFile);
+        if (excelFile is not null)
+            SetSelectedFile(excelFile);
+    }
+
+    private static bool IsExcelDrop(IDataObject data)
+    {
+        return data.GetDataPresent(DataFormats.FileDrop) &&
+               (data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>()).Any(IsExcelFile);
+    }
+
+    private static bool IsExcelFile(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".xlsm", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SetSelectedFile(string path)
+    {
+        _selectedFile = path;
+        FileText.Text = path;
         ScanButton.IsEnabled = true;
         CleanButton.IsEnabled = true;
         StatusText.Text = "검사 준비 완료.";
         _results.Clear();
     }
 
-    private async void ScanButton_Click(object sender, System.Windows.RoutedEventArgs e)
+    private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedFile is null) return;
         if (!TryGetThreshold(out var threshold)) return;
@@ -58,7 +100,7 @@ public partial class MainWindow : System.Windows.Window
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(ex.Message, "Excel 검사 실패", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "Excel 검사 실패", MessageBoxButton.OK, MessageBoxImage.Error);
             StatusText.Text = "검사 실패.";
         }
         finally
@@ -67,18 +109,18 @@ public partial class MainWindow : System.Windows.Window
         }
     }
 
-    private async void CleanButton_Click(object sender, System.Windows.RoutedEventArgs e)
+    private async void CleanButton_Click(object sender, RoutedEventArgs e)
     {
         if (_selectedFile is null) return;
         if (!TryGetThreshold(out var threshold)) return;
 
-        var extension = System.IO.Path.GetExtension(_selectedFile);
+        var extension = Path.GetExtension(_selectedFile);
         var dialog = new SaveFileDialog
         {
             Filter = extension.Equals(".xlsm", StringComparison.OrdinalIgnoreCase)
                 ? "Excel Macro-Enabled Workbook (*.xlsm)|*.xlsm"
                 : "Excel Workbook (*.xlsx)|*.xlsx",
-            FileName = System.IO.Path.GetFileNameWithoutExtension(_selectedFile) + "_clean" + extension,
+            FileName = Path.GetFileNameWithoutExtension(_selectedFile) + "_clean" + extension,
             OverwritePrompt = true
         };
         if (dialog.ShowDialog() != true) return;
@@ -93,24 +135,23 @@ public partial class MainWindow : System.Windows.Window
                 TinyObjectThresholdPixels: threshold);
 
             var report = await Task.Run(() => _cleaner.Clean(_selectedFile, dialog.FileName, options));
-            await Task.Run(() => ExcelCleanupService.ValidateWorkbook(report.OutputPath));
 
             StatusText.Text = $"정리 완료: Style {report.OriginalStyleCount:N0} → {report.FinalStyleCount:N0}, " +
                               $"객체 {report.RemovedObjectCount:N0}개 삭제";
 
-            System.Windows.MessageBox.Show(
+            MessageBox.Show(
                 $"정리된 파일이 생성되었습니다.\n\n결과: {report.OutputPath}\n백업: {report.BackupPath}\n\n" +
                 $"Style: {report.OriginalStyleCount:N0} → {report.FinalStyleCount:N0}\n" +
                 $"Style 삭제/병합: {report.RemovedStyleCount:N0}\n" +
                 $"참조 재매핑: {report.RemappedCellCount:N0}\n" +
                 $"작은 객체 삭제: {report.RemovedObjectCount:N0}",
                 "Quick Excel Cleaner",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(ex.Message, "Excel 정리 실패", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            MessageBox.Show(ex.Message, "Excel 정리 실패", MessageBoxButton.OK, MessageBoxImage.Error);
             StatusText.Text = "정리 실패.";
         }
         finally
@@ -124,7 +165,7 @@ public partial class MainWindow : System.Windows.Window
         if (double.TryParse(PixelThresholdText.Text, out threshold) && threshold > 0)
             return true;
 
-        System.Windows.MessageBox.Show("픽셀 기준은 0보다 큰 숫자로 입력하세요.", "Quick Excel Cleaner");
+        MessageBox.Show("픽셀 기준은 0보다 큰 숫자로 입력하세요.", "Quick Excel Cleaner");
         threshold = 2;
         return false;
     }
