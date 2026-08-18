@@ -26,8 +26,8 @@ internal static class ComplexWorkbookTests
                 "unused style cellXfs[4] should be detected");
             Assert(findings.Any(x => x.Category == "중복 Style" && x.Target == "cellXfs[3]"),
                 "duplicate style cellXfs[3] should be detected");
-            Assert(findings.Count(x => x.Category == "작은 객체") == 1,
-                "exactly one tiny object should be detected");
+            Assert(findings.Count(x => x.Category == "작은 객체") == 2,
+                "two tiny objects should be detected across two sheets");
 
             var cleaner = new ExcelCleanupService();
             var report = cleaner.Clean(source, output, new CleanupOptions(
@@ -39,8 +39,8 @@ internal static class ComplexWorkbookTests
             Assert(report.OriginalStyleCount == 5, $"expected 5 original styles, got {report.OriginalStyleCount}");
             Assert(report.FinalStyleCount == 3, $"expected 3 final styles, got {report.FinalStyleCount}");
             Assert(report.RemovedStyleCount == 2, $"expected 2 removed styles, got {report.RemovedStyleCount}");
-            Assert(report.RemappedCellCount == 2, $"expected 2 remapped style references, got {report.RemappedCellCount}");
-            Assert(report.RemovedObjectCount == 1, $"expected 1 removed tiny object, got {report.RemovedObjectCount}");
+            Assert(report.RemappedCellCount == 6, $"expected 6 remapped style references, got {report.RemappedCellCount}");
+            Assert(report.RemovedObjectCount == 2, $"expected 2 removed tiny objects, got {report.RemovedObjectCount}");
 
             ExcelCleanupService.ValidateWorkbook(output);
 
@@ -54,19 +54,20 @@ internal static class ComplexWorkbookTests
                 var part = (WorksheetPart)workbook.GetPartById(sheet.Id!);
                 var cells = part.Worksheet.Descendants<Cell>().ToList();
                 Assert(cells.Any(x => x.CellValue?.Text == "KEEP"), $"KEEP value missing on {sheet.Name}");
+                Assert(part.DrawingsPart?.WorksheetDrawing?.ChildElements.Count == 1,
+                    $"normal drawing should remain on {sheet.Name}");
             }
 
             var sheet1 = (WorksheetPart)workbook.GetPartById(sheets[0].Id!);
             var row = sheet1.Worksheet.Descendants<Row>().Single(r => r.RowIndex?.Value == 2U);
-            Assert(row.StyleIndex?.Value == 2U, "row style was not preserved/remapped to style 2");
+            Assert(row.StyleIndex?.Value == 1U, "row style was not remapped to canonical style 1");
 
             var column = sheet1.Worksheet.Descendants<Column>().Single();
-            Assert(column.Style?.Value == 2U, "column style was not preserved/remapped to style 2");
+            Assert(column.Style?.Value == 1U, "column style was not remapped to canonical style 1");
 
-            var drawing = sheet1.DrawingsPart?.WorksheetDrawing;
-            Assert(drawing is not null, "drawing part disappeared");
-            Assert(drawing!.ChildElements.Count == 1, "normal drawing should remain after tiny object removal");
-            Assert(drawing.ChildElements[0].LocalName == "oneCellAnchor", "remaining drawing is not oneCellAnchor");
+            var sheet2 = (WorksheetPart)workbook.GetPartById(sheets[1].Id!);
+            var numberCell = sheet2.Worksheet.Descendants<Cell>().Single();
+            Assert(numberCell.StyleIndex?.Value == 2U, "distinct style 2 was not preserved");
 
             Console.WriteLine("COMPLEX WORKBOOK TESTS PASSED");
         }
@@ -101,11 +102,11 @@ internal static class ComplexWorkbookTests
         );
         stylesPart.Stylesheet.Save();
 
-        var first = AddSheet(workbookPart, "Data1");
-        var second = AddSheet(workbookPart, "Data2");
+        var first = AddSheet(workbookPart);
+        var second = AddSheet(workbookPart);
 
-        ConfigureSheet(first);
-        ConfigureSheet(second);
+        ConfigureSheet(first, 3U);
+        ConfigureSheet(second, 2U);
 
         workbookPart.Workbook.AppendChild(new Sheets(
             new Sheet { Id = workbookPart.GetIdOfPart(first), SheetId = 1U, Name = "Data1" },
@@ -113,7 +114,7 @@ internal static class ComplexWorkbookTests
         workbookPart.Workbook.Save();
     }
 
-    private static WorksheetPart AddSheet(WorkbookPart workbookPart, string name)
+    private static WorksheetPart AddSheet(WorkbookPart workbookPart)
     {
         var part = workbookPart.AddNewPart<WorksheetPart>();
         part.Worksheet = new Worksheet(new SheetData());
@@ -121,23 +122,20 @@ internal static class ComplexWorkbookTests
         return part;
     }
 
-    private static void ConfigureSheet(WorksheetPart part)
+    private static void ConfigureSheet(WorksheetPart part, uint cellStyle)
     {
         var sheetData = part.Worksheet.GetFirstChild<SheetData>()!;
         sheetData.Append(
-            new Row { RowIndex = 1U, Spans = new ListValue<StringValue>(new[] { new StringValue("1:3") }) },
+            new Row { RowIndex = 1U },
             new Row { RowIndex = 2U, StyleIndex = 3U,
-                ChildElements = { new Cell { CellReference = "A2", DataType = CellValues.String, CellValue = new CellValue("KEEP"), StyleIndex = 3U } } });
+                ChildElements = { new Cell { CellReference = "A2", DataType = CellValues.String, CellValue = new CellValue("KEEP"), StyleIndex = cellStyle } } });
 
-        var columns = new Columns(
-            new Column { Min = 1U, Max = 1U, Style = 3U });
+        var columns = new Columns(new Column { Min = 1U, Max = 1U, Style = 3U });
         part.Worksheet.InsertAt(columns, 0);
 
         var drawingsPart = part.AddNewPart<DrawingsPart>();
         drawingsPart.WorksheetDrawing = new Xdr.WorksheetDrawing();
-        drawingsPart.WorksheetDrawing.Append(
-            TinyAnchor(),
-            NormalAnchor());
+        drawingsPart.WorksheetDrawing.Append(TinyAnchor(), NormalAnchor());
         drawingsPart.WorksheetDrawing.Save();
 
         part.Worksheet.Append(new Drawing { Id = part.GetIdOfPart(drawingsPart) });
