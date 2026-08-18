@@ -20,8 +20,18 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
+      - name: Checkout exact ref
         uses: actions/checkout@v7
+
+      - name: Verify source identity
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          Write-Host "Expected SHA: $env:GITHUB_SHA"
+          Write-Host "Checked out SHA: $actual"
+          if ($actual -ne $env:GITHUB_SHA) {
+            throw "Checked out commit does not match GITHUB_SHA."
+          }
 
       - name: Setup .NET 10 SDK
         uses: actions/setup-dotnet@v6
@@ -50,8 +60,18 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
+      - name: Checkout exact ref
         uses: actions/checkout@v7
+
+      - name: Verify source identity
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          Write-Host "Expected SHA: $env:GITHUB_SHA"
+          Write-Host "Checked out SHA: $actual"
+          if ($actual -ne $env:GITHUB_SHA) {
+            throw "Checked out commit does not match GITHUB_SHA."
+          }
 
       - name: Setup .NET 10 SDK
         uses: actions/setup-dotnet@v6
@@ -85,6 +105,7 @@ jobs:
           if ($size -lt 1MB) {
             throw "Published executable is unexpectedly small: $size bytes"
           }
+          Write-Host "Commit SHA: $env:GITHUB_SHA"
           Write-Host "Published executable: $exe"
           Write-Host "Size: $size bytes"
 
