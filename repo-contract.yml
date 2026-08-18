@@ -1,0 +1,51 @@
+version: 1
+
+runtime:
+  dotnet: "10.0.400"
+  targetFramework: "net10.0-windows"
+  os: windows
+  runtimeIdentifier: win-x64
+
+application:
+  ui: WPF
+  excelFormats:
+    - xlsx
+    - xlsm
+  excelLibrary: DocumentFormat.OpenXml
+
+verification:
+  build: true
+  integrationTests: true
+  publish: true
+  validatePublishedArtifact: true
+
+cleanup:
+  sourceInPlace: false
+  backupBeforeWrite: true
+  validateOutputBeforeSuccess: true
+  removeTinyObjectsDefaultThresholdPixels: 2
+  styles:
+    includeCells: true
+    includeRows: true
+    includeColumns: true
+    mergeDuplicatesBeforeRemovingUnused: true
+
+preservation:
+  xlsmVba: true
+  mergedCells: true
+  hiddenRowsColumns: true
+  freezePanes: true
+  conditionalFormatting: true
+  namedStyles: true
+  normalDrawings: true
+
+release:
+  versionSource: src/QuickExcelCleaner/QuickExcelCleaner.csproj
+  tagPrefix: v
+  runtime: win-x64
+  selfContained: true
+  singleFile: true
+
+ci:
+  failureAlert: github-issue
+  artifact: true
