@@ -49,6 +49,9 @@ internal static class ComplexWorkbookTests
             var sheets = workbook.Workbook.Sheets!.Elements<Sheet>().ToList();
             Assert(sheets.Count == 2, "worksheet count changed");
 
+            var styles = workbook.WorkbookStylesPart!.Stylesheet!.CellFormats!.Elements<CellFormat>().ToList();
+            var canonicalStyle = styles[1].OuterXml;
+
             foreach (var sheet in sheets)
             {
                 var part = (WorksheetPart)workbook.GetPartById(sheet.Id!);
@@ -60,10 +63,16 @@ internal static class ComplexWorkbookTests
 
             var sheet1 = (WorksheetPart)workbook.GetPartById(sheets[0].Id!);
             var row = sheet1.Worksheet.Descendants<Row>().Single(r => r.RowIndex?.Value == 2U);
-            Assert(row.StyleIndex?.Value == 1U, "row style was not remapped to canonical style 1");
+            Assert(row.StyleIndex?.Value is uint rowStyleIndex && rowStyleIndex < styles.Count,
+                "row style index is missing or invalid");
+            Assert(styles[(int)row.StyleIndex!.Value].OuterXml == canonicalStyle,
+                "row style was not normalized to the canonical style");
 
             var column = sheet1.Worksheet.Descendants<Column>().Single();
-            Assert(column.Style?.Value == 1U, "column style was not remapped to canonical style 1");
+            Assert(column.Style?.Value is uint columnStyleIndex && columnStyleIndex < styles.Count,
+                "column style index is missing or invalid");
+            Assert(styles[(int)column.Style!.Value].OuterXml == canonicalStyle,
+                "column style was not normalized to the canonical style");
 
             var sheet2 = (WorksheetPart)workbook.GetPartById(sheets[1].Id!);
             var numberCell = sheet2.Worksheet.Descendants<Cell>().Single();
