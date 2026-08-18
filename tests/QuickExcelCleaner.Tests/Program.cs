@@ -24,12 +24,15 @@ try
     Assert(results.Any(x => x.Category == "중복 Style" && x.Target == "cellXfs[3]" && x.Detail.Contains("cellXfs[1]")),
         "duplicate style cellXfs[3] was not detected");
 
-    Console.WriteLine("ALL TESTS PASSED");
+    Console.WriteLine("SCANNER TESTS PASSED");
 }
 finally
 {
     try { Directory.Delete(tempRoot, recursive: true); } catch { }
 }
+
+QuickExcelCleaner.Tests.CleanupTests.Run();
+Console.WriteLine("ALL TESTS PASSED");
 
 static void CreateWorkbook(string path)
 {
