@@ -21,7 +21,7 @@ internal static class CleanupTests
             var report = service.Clean(
                 source,
                 output,
-                new CleanupOptions(RemoveUnusedStyles: true, MergeDuplicateStyles: true, RemoveTinyObjects: false));
+                new CleanupOptions(RemoveUnusedStyles: true, MergeDuplicateStyles: true, RemoveTinyObjects: true, TinyObjectThresholdPixels: 2));
 
             Assert(File.Exists(report.BackupPath), "backup was not created");
             Assert(File.Exists(output), "clean output was not created");
@@ -29,6 +29,7 @@ internal static class CleanupTests
             Assert(report.FinalStyleCount == 2, $"expected 2 final styles, got {report.FinalStyleCount}");
             Assert(report.RemovedStyleCount == 2, $"expected 2 removed styles, got {report.RemovedStyleCount}");
             Assert(report.RemappedCellCount == 1, $"expected 1 remapped reference, got {report.RemappedCellCount}");
+            Assert(report.RemovedObjectCount == 1, $"expected 1 tiny object removed, got {report.RemovedObjectCount}");
 
             ExcelCleanupService.ValidateWorkbook(output);
 
@@ -40,6 +41,7 @@ internal static class CleanupTests
             var worksheetPart = (WorksheetPart)workbook.GetPartById(sheet.Id!);
             var cell = worksheetPart.Worksheet.Descendants<Cell>().Single();
             Assert(cell.StyleIndex?.Value == 1U, $"expected cell style 1, got {cell.StyleIndex?.Value}");
+            Assert(worksheetPart.DrawingsPart?.WorksheetDrawing?.ChildElements.Any() != true, "tiny drawing object remains");
 
             Console.WriteLine("CLEANUP TESTS PASSED");
         }
@@ -83,6 +85,21 @@ internal static class CleanupTests
                 StyleIndex = 3U
             })
         ));
+
+        var drawingsPart = worksheetPart.AddNewPart<DrawingsPart>();
+        drawingsPart.WorksheetDrawing = new DocumentFormat.OpenXml.Drawing.Spreadsheet.WorksheetDrawing();
+        drawingsPart.WorksheetDrawing.AppendChild(
+            new DocumentFormat.OpenXml.Drawing.Spreadsheet.OneCellAnchor(
+                new DocumentFormat.OpenXml.Drawing.Spreadsheet.FromMarker(
+                    new ColumnId("0"), new ColumnOffset("0"), new RowId("0"), new RowOffset("0")),
+                new DocumentFormat.OpenXml.Drawing.Spreadsheet.Extent { Cx = 9525L, Cy = 9525L },
+                new DocumentFormat.OpenXml.Drawing.Spreadsheet.ClientData()));
+        drawingsPart.WorksheetDrawing.Save();
+
+        worksheetPart.Worksheet.Append(new DocumentFormat.OpenXml.Spreadsheet.Drawing
+        {
+            Id = worksheetPart.GetIdOfPart(drawingsPart)
+        });
         worksheetPart.Worksheet.Save();
 
         var sheets = workbookPart.Workbook.AppendChild(new Sheets());
