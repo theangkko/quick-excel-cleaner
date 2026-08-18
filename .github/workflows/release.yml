@@ -23,6 +23,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify source identity
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          Write-Host "Expected SHA: $env:GITHUB_SHA"
+          Write-Host "Checked out SHA: $actual"
+          if ($actual -ne $env:GITHUB_SHA) {
+            throw 'Checked out commit does not match GITHUB_SHA.'
+          }
+
       - name: Setup .NET 10 SDK
         uses: actions/setup-dotnet@v6
         with:
@@ -49,6 +59,7 @@ jobs:
           "tag=$tag" >> $env:GITHUB_OUTPUT
           Write-Host "AppVersion: $version"
           Write-Host "Release tag: $tag"
+          Write-Host "Release commit SHA: $env:GITHUB_SHA"
 
       - name: Check tag does not already exist
         shell: pwsh
@@ -94,6 +105,7 @@ jobs:
             throw "Release executable is unexpectedly small: $($file.Length) bytes"
           }
 
+          Write-Host "Release commit SHA: $env:GITHUB_SHA"
           Write-Host "Release executable: $($file.FullName)"
           Write-Host "Size: $($file.Length) bytes"
 
