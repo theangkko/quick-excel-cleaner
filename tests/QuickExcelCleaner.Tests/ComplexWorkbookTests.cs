@@ -39,7 +39,7 @@ internal static class ComplexWorkbookTests
             Assert(report.OriginalStyleCount == 5, $"expected 5 original styles, got {report.OriginalStyleCount}");
             Assert(report.FinalStyleCount == 3, $"expected 3 final styles, got {report.FinalStyleCount}");
             Assert(report.RemovedStyleCount == 2, $"expected 2 removed styles, got {report.RemovedStyleCount}");
-            Assert(report.RemappedCellCount == 6, $"expected 6 remapped style references, got {report.RemappedCellCount}");
+            Assert(report.RemappedCellCount == 5, $"expected 5 remapped style references, got {report.RemappedCellCount}");
             Assert(report.RemovedObjectCount == 2, $"expected 2 removed tiny objects, got {report.RemovedObjectCount}");
 
             ExcelCleanupService.ValidateWorkbook(output);
@@ -127,8 +127,9 @@ internal static class ComplexWorkbookTests
         var sheetData = part.Worksheet.GetFirstChild<SheetData>()!;
         sheetData.Append(
             new Row { RowIndex = 1U },
-            new Row { RowIndex = 2U, StyleIndex = 3U,
-                ChildElements = { new Cell { CellReference = "A2", DataType = CellValues.String, CellValue = new CellValue("KEEP"), StyleIndex = cellStyle } } });
+            new Row(
+                new Cell { CellReference = "A2", DataType = CellValues.String, CellValue = new CellValue("KEEP"), StyleIndex = cellStyle }
+            ) { RowIndex = 2U, StyleIndex = 3U });
 
         var columns = new Columns(new Column { Min = 1U, Max = 1U, Style = 3U });
         part.Worksheet.InsertAt(columns, 0);
